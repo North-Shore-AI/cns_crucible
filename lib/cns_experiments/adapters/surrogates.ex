@@ -6,29 +6,34 @@ defmodule CnsExperiments.Adapters.Surrogates do
   @behaviour Crucible.CNS.SurrogateAdapter
 
   alias CNS.Topology.Surrogates
+  alias CNS.Topology
   alias CnsExperiments.Adapters.Common
 
   @impl true
   def compute_surrogates(examples, outputs, opts \\ %{}) do
     opts = normalize_opts(opts)
 
-    with {:ok, %{parsed: parsed}} <- Common.build_snos(examples, outputs) do
-      results =
-        parsed
-        |> Enum.with_index(1)
-        |> Enum.map(fn {result, idx} ->
-          graph = Common.graph_from_relations(result.relations)
-          embeddings = Common.embedding_vectors(result.claims)
+    with {:ok, %{snos: snos, parsed: parsed}} <- Common.build_snos(examples, outputs) do
+      graph = Topology.build_graph(snos)
+      claim_lookup = claim_lookup(parsed)
 
-          beta1 = Surrogates.compute_beta1_surrogate(graph)
+      results =
+        snos
+        |> Enum.with_index(1)
+        |> Enum.map(fn {%{id: id} = sno, idx} ->
+          subgraph = neighborhood(graph, id)
+          embeddings = claim_lookup |> Map.get(id, []) |> Common.embedding_vectors()
+
+          beta1 = Surrogates.compute_beta1_surrogate(subgraph)
           fragility = Surrogates.compute_fragility_surrogate(embeddings, opts)
 
           %{
-            sno_id: result[:id] || "output_#{idx}",
+            sno_id: id || "output_#{idx}",
             beta1_surrogate: beta1,
             fragility_score: fragility,
-            cycle_count: length(result.relations),
-            notes: nil
+            cycle_count: beta1,
+            notes: nil,
+            metadata: sno.metadata
           }
         end)
 
@@ -72,6 +77,32 @@ defmodule CnsExperiments.Adapters.Surrogates do
     else
       Enum.count(list, fun) / length(list)
     end
+  end
+
+  defp claim_lookup(parsed) do
+    parsed
+    |> Enum.flat_map(fn result ->
+      Enum.map(result.claims, fn claim -> {claim.id, claim} end)
+    end)
+    |> Enum.group_by(fn {id, _} -> id end, fn {_id, claim} -> claim end)
+  end
+
+  defp neighborhood(graph, id) do
+    neighbors =
+      graph
+      |> Map.get(id, [])
+      |> Enum.concat(
+        graph
+        |> Enum.filter(fn {_k, v} -> Enum.member?(v, id) end)
+        |> Enum.map(fn {k, _} -> k end)
+      )
+      |> Enum.uniq()
+
+    nodes = [id | neighbors] |> Enum.uniq()
+
+    graph
+    |> Enum.filter(fn {node, _} -> node in nodes end)
+    |> Enum.into(%{})
   end
 
   defp normalize_opts(nil), do: %{}
