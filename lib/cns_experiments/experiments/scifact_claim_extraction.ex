@@ -27,7 +27,7 @@ defmodule CnsExperiments.Experiments.ScifactClaimExtraction do
 
   - Tinkex API key configured
   - Dataset at priv/data/scifact_claim_extractor_clean.jsonl
-  - CNS.CrucibleAdapter configured
+  - CNS adapters configured in `cns_experiments` config
   """
 
   require Logger
@@ -203,6 +203,16 @@ defmodule CnsExperiments.Experiments.ScifactClaimExtraction do
           sample_prompts: build_sample_prompts(),
           create_sampler?: true
         }
+      },
+      %StageDef{
+        name: :cns_surrogate_validation,
+        module: nil,
+        options: %{}
+      },
+      %StageDef{
+        name: :cns_tda_validation,
+        module: nil,
+        options: %{}
       },
       %StageDef{
         name: :cns_metrics,

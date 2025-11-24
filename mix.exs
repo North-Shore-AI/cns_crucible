@@ -28,9 +28,13 @@ defmodule CnsExperiments.MixProject do
   defp deps do
     [
       # Core dependencies - the three pillars
-      {:cns, github: "North-Shore-AI/cns"},
+      {:cns, path: "../cns"},
       {:crucible_framework, path: "../crucible_framework"},
       {:tinkex, path: "../tinkex", override: true},
+      {:crucible_ensemble, path: "../crucible_ensemble"},
+      {:crucible_hedging, path: "../crucible_hedging"},
+      {:crucible_bench, path: "../crucible_bench"},
+      {:crucible_trace, path: "../crucible_trace"},
 
       # ML stack for CNS experiments
       {:bumblebee, "~> 0.5"},

@@ -67,6 +67,8 @@ defmodule CnsExperiments.Experiments.ScifactClaimExtractionTest do
                :data_checks,
                :guardrails,
                :backend_call,
+               :cns_surrogate_validation,
+               :cns_tda_validation,
                :cns_metrics,
                :bench,
                :report

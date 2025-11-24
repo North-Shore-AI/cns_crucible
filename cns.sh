@@ -63,18 +63,17 @@ usage() {
   9) Setup SciFact data
  10) Setup data with embedding validation
 
- INFO & UTILS
+INFO & UTILS
  11) Show pipeline info
- 12) Show Lora adapter info
- 13) List available experiments
+ 12) List available experiments
 
- DEVELOPMENT
- 14) Run all tests
- 15) Compile project
- 16) Custom mix command
- 17) Open IEx console
+DEVELOPMENT
+ 13) Run all tests
+ 14) Compile project
+ 15) Custom mix command
+ 16) Open IEx console
 
- 18) Quit
+ 17) Quit
 
 HELP
 }
@@ -149,25 +148,10 @@ run_info() {
   echo "     - Citation check (document IDs)"
   echo "     - Entailment scoring (NLI)"
   echo "     - Similarity scoring (embeddings)"
-  echo "  3. Train LoRA model via Crucible.Lora (Tinkex adapter)"
-  echo "  4. Evaluate and generate metrics"
+  echo "  3. Train/eval via CrucibleFramework pipeline (backend_call + CNS stages)"
+  echo "  4. Evaluate and generate metrics (bench/report stages)"
   echo ""
   echo "  Current adapters: Heuristic-based (Bumblebee ready)"
-}
-
-run_lora_info() {
-  echo_info "Crucible.Lora adapter information:"
-  mix run -e 'IO.inspect(Crucible.Lora.adapter_module(), label: "Adapter module")'
-  echo ""
-  echo "  Available functions:"
-  echo "    • create_experiment/1"
-  echo "    • generate_id/0"
-  echo "    • batch_dataset/2"
-  echo "    • format_training_data/2"
-  echo "    • calculate_metrics/1"
-  echo "    • validate_quality/2"
-  echo "    • sampling_params/1"
-  echo "    • checkpoint_name/2"
 }
 
 run_list_experiments() {
@@ -211,7 +195,7 @@ main() {
 
   while true; do
     usage
-    read -rp "Select option [1-18]: " choice
+    read -rp "Select option [1-17]: " choice
     case "$choice" in
       1) run_validate ;;
       2) run_train_tinkex ;;
@@ -224,13 +208,12 @@ main() {
       9) run_data_scifact ;;
       10) run_data_embedding ;;
       11) run_info ;;
-      12) run_lora_info ;;
-      13) run_list_experiments ;;
-      14) run_all_tests ;;
-      15) run_compile ;;
-      16) run_custom ;;
-      17) run_iex ;;
-      18) echo_success "Goodbye."; exit 0 ;;
+      12) run_list_experiments ;;
+      13) run_all_tests ;;
+      14) run_compile ;;
+      15) run_custom ;;
+      16) run_iex ;;
+      17) echo_success "Goodbye."; exit 0 ;;
       *) echo_error "Invalid choice" ;;
     esac
     echo ""
