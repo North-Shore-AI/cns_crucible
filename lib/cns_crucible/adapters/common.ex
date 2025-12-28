@@ -75,7 +75,7 @@ defmodule CnsCrucible.Adapters.Common do
     relations = extract_relations(text)
 
     %{
-      success: length(claims) > 0,
+      success: claims != [],
       claims: claims,
       relations: relations,
       raw: text

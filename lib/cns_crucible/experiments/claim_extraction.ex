@@ -6,5 +6,7 @@ defmodule CnsCrucible.Experiments.ClaimExtraction do
   the canonical Crucible pipeline.
   """
 
-  def run(opts \\ []), do: CnsCrucible.Experiments.ScifactClaimExtraction.run(opts)
+  alias CnsCrucible.Experiments.ScifactClaimExtraction
+
+  def run(opts \\ []), do: ScifactClaimExtraction.run(opts)
 end

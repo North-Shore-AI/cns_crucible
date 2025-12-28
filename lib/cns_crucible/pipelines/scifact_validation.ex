@@ -51,7 +51,7 @@ defmodule CnsCrucible.Pipelines.ScifactValidation do
   def citation_check(example) do
     # Try old format first
     case Map.get(example, :evidence) do
-      evidence when is_list(evidence) and length(evidence) > 0 ->
+      evidence when is_list(evidence) and evidence != [] ->
         true
 
       _ ->
@@ -89,7 +89,7 @@ defmodule CnsCrucible.Pipelines.ScifactValidation do
   defp get_evidence_and_claim(example) do
     # Try old format first
     case Map.get(example, :evidence) do
-      evidence when is_list(evidence) and length(evidence) > 0 ->
+      evidence when is_list(evidence) and evidence != [] ->
         claim = Map.get(example, :claim, "")
         {Enum.join(evidence, " "), claim}
 

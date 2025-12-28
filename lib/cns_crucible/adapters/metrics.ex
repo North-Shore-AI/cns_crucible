@@ -6,15 +6,12 @@ defmodule CnsCrucible.Adapters.Metrics do
   app to keep `cns` free of Crucible dependencies.
   """
 
-  @behaviour Crucible.Analysis.Adapter
-
   require Logger
 
   alias CNS.{Config, SNO, Topology}
   alias CNS.Validation.Semantic
   alias CnsCrucible.Adapters.Common
 
-  @impl true
   @spec evaluate(list(map()), list(String.t()), map()) :: {:ok, map()} | {:error, term()}
   def evaluate(examples, outputs, opts \\ %{})
 
@@ -100,31 +97,26 @@ defmodule CnsCrucible.Adapters.Metrics do
   end
 
   defp build_corpus(examples) do
-    Enum.reduce(examples, %{}, fn example, acc ->
-      case example do
-        %{"metadata" => %{"doc_ids" => doc_ids}} when is_list(doc_ids) ->
-          Enum.reduce(doc_ids, acc, fn doc_id, inner_acc ->
-            Map.put(inner_acc, to_string(doc_id), %{
-              "id" => to_string(doc_id),
-              "text" => Map.get(example, "prompt", ""),
-              "abstract" => Map.get(example, "completion", "")
-            })
-          end)
+    Enum.reduce(examples, %{}, &add_example_docs/2)
+  end
 
-        %{"metadata" => %{doc_ids: doc_ids}} when is_list(doc_ids) ->
-          Enum.reduce(doc_ids, acc, fn doc_id, inner_acc ->
-            Map.put(inner_acc, to_string(doc_id), %{
-              "id" => to_string(doc_id),
-              "text" => Map.get(example, "prompt", ""),
-              "abstract" => Map.get(example, "completion", "")
-            })
-          end)
+  defp add_example_docs(example, acc) do
+    doc_ids = get_doc_ids(example)
+    text = Map.get(example, "prompt", "")
+    abstract = Map.get(example, "completion", "")
 
-        _ ->
-          acc
-      end
+    Enum.reduce(doc_ids, acc, fn doc_id, inner_acc ->
+      Map.put(inner_acc, to_string(doc_id), %{
+        "id" => to_string(doc_id),
+        "text" => text,
+        "abstract" => abstract
+      })
     end)
   end
+
+  defp get_doc_ids(%{"metadata" => %{"doc_ids" => doc_ids}}) when is_list(doc_ids), do: doc_ids
+  defp get_doc_ids(%{"metadata" => %{doc_ids: doc_ids}}) when is_list(doc_ids), do: doc_ids
+  defp get_doc_ids(_), do: []
 
   defp compute_schema_metrics(parsed_results) do
     total = length(parsed_results)
@@ -141,78 +133,72 @@ defmodule CnsCrucible.Adapters.Metrics do
   end
 
   defp compute_citation_metrics(snos, corpus) do
-    all_citations =
-      snos
-      |> Enum.flat_map(fn sno ->
-        Enum.map(sno.evidence, fn evidence ->
-          case Regex.run(~r/Document\s+(\d+)/, evidence.source) do
-            [_, doc_id] -> doc_id
-            _ -> nil
-          end
-        end)
-        |> Enum.reject(&is_nil/1)
-      end)
+    all_citations = extract_all_citations(snos)
+    build_citation_metrics(all_citations, corpus)
+  end
 
-    if Enum.empty?(all_citations) do
-      %{
-        citation_accuracy: 1.0,
-        valid_citations: 0,
-        invalid_citations: 0,
-        hallucinated_citations: 0
-      }
-    else
-      valid = Enum.count(all_citations, &Map.has_key?(corpus, &1))
-      invalid = length(all_citations) - valid
+  defp extract_all_citations(snos) do
+    Enum.flat_map(snos, &extract_sno_citations/1)
+  end
 
-      %{
-        citation_accuracy: Float.round(valid / length(all_citations), 4),
-        valid_citations: valid,
-        invalid_citations: invalid,
-        hallucinated_citations: invalid
-      }
+  defp extract_sno_citations(sno) do
+    sno.evidence
+    |> Enum.map(&extract_doc_id/1)
+    |> Enum.reject(&is_nil/1)
+  end
+
+  defp extract_doc_id(evidence) do
+    case Regex.run(~r/Document\s+(\d+)/, evidence.source) do
+      [_, doc_id] -> doc_id
+      _ -> nil
     end
   end
+
+  defp build_citation_metrics([], _corpus) do
+    %{
+      citation_accuracy: 1.0,
+      valid_citations: 0,
+      invalid_citations: 0,
+      hallucinated_citations: 0
+    }
+  end
+
+  defp build_citation_metrics(citations, corpus) do
+    valid = Enum.count(citations, &Map.has_key?(corpus, &1))
+    invalid = length(citations) - valid
+
+    %{
+      citation_accuracy: Float.round(valid / length(citations), 4),
+      valid_citations: valid,
+      invalid_citations: invalid,
+      hallucinated_citations: invalid
+    }
+  end
+
+  defp compute_semantic_metrics([], _, _, _, _), do: %{mean_entailment: nil, mean_similarity: nil}
+  defp compute_semantic_metrics(_, [], _, _, _), do: %{mean_entailment: nil, mean_similarity: nil}
 
   defp compute_semantic_metrics(examples, outputs, snos, _corpus, _opts) do
-    if length(examples) > 0 and length(outputs) > 0 do
-      similarities =
-        Enum.zip(examples, outputs)
-        |> Enum.map(fn {example, output} ->
-          expected = Map.get(example, "completion", "")
-          Semantic.compute_similarity(expected, output)
-        end)
+    similarities =
+      Enum.zip(examples, outputs)
+      |> Enum.map(fn {example, output} ->
+        expected = Map.get(example, "completion", "")
+        Semantic.compute_similarity(expected, output)
+      end)
 
-      entailments =
-        snos
-        |> Enum.map(fn sno ->
-          sno.confidence * SNO.evidence_score(sno)
-        end)
+    entailments =
+      Enum.map(snos, fn sno ->
+        sno.confidence * SNO.evidence_score(sno)
+      end)
 
-      mean_sim =
-        if length(similarities) > 0 do
-          Float.round(Enum.sum(similarities) / length(similarities), 4)
-        else
-          nil
-        end
-
-      mean_ent =
-        if length(entailments) > 0 do
-          Float.round(Enum.sum(entailments) / length(entailments), 4)
-        else
-          nil
-        end
-
-      %{
-        mean_entailment: mean_ent,
-        mean_similarity: mean_sim
-      }
-    else
-      %{
-        mean_entailment: nil,
-        mean_similarity: nil
-      }
-    end
+    %{
+      mean_entailment: safe_mean(entailments),
+      mean_similarity: safe_mean(similarities)
+    }
   end
+
+  defp safe_mean([]), do: nil
+  defp safe_mean(values), do: Float.round(Enum.sum(values) / length(values), 4)
 
   defp compute_topology_metrics(snos) do
     if Enum.empty?(snos) do
@@ -227,7 +213,7 @@ defmodule CnsCrucible.Adapters.Metrics do
     else
       graph = Topology.build_graph(snos)
       betti = Topology.betti_numbers(graph)
-      is_dag = Topology.is_dag?(graph)
+      is_dag = Topology.dag?(graph)
       cycles = Topology.detect_cycles(graph)
 
       %{
@@ -252,10 +238,11 @@ defmodule CnsCrucible.Adapters.Metrics do
       }
     else
       conflicts = detect_polarity_conflicts(snos)
+      conflict_count = length(conflicts)
 
       chirality_score =
-        if length(conflicts) > 0 do
-          Float.round(length(conflicts) / length(snos), 4)
+        if conflict_count > 0 do
+          Float.round(conflict_count / length(snos), 4)
         else
           0.0
         end
@@ -263,7 +250,7 @@ defmodule CnsCrucible.Adapters.Metrics do
       %{
         chirality: %{
           mean_score: chirality_score,
-          polarity_conflicts: length(conflicts),
+          polarity_conflicts: conflict_count,
           high_conflict_count: Enum.count(conflicts, fn {_a, _b, score} -> score > 0.7 end)
         }
       }

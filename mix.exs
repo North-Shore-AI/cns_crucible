@@ -1,7 +1,7 @@
 defmodule CnsCrucible.MixProject do
   use Mix.Project
 
-  @version "0.1.0"
+  @version "0.2.0"
 
   def project do
     [
@@ -29,20 +29,22 @@ defmodule CnsCrucible.MixProject do
   defp deps do
     [
       # Core dependencies - the three pillars
-      {:cns, path: "../cns"},
-      {:crucible_framework, path: "../crucible_framework"},
-      {:tinkex, path: "../tinkex", override: true},
-      {:crucible_ensemble, path: "../crucible_ensemble"},
-      {:crucible_hedging, path: "../crucible_hedging"},
-      {:crucible_bench, path: "../crucible_bench"},
-      {:crucible_trace, path: "../crucible_trace"},
+      {:cns, github: "North-Shore-AI/cns"},
+      # Using path while monorepo stabilizes; Hex package available as {:crucible_framework, "~> 0.5.0"}
+      {:crucible_framework, "~> 0.5.1"},
+      {:tinkex, "~> 0.3.4"},
+      {:crucible_ensemble, "~> 0.4.0"},
+      {:crucible_hedging, "~> 0.4.0"},
+      {:crucible_bench, "~> 0.4.0"},
+      {:crucible_trace, "~> 0.3.0"},
+      {:work, github: "North-Shore-AI/work"},
 
       # ML stack for CNS Crucible experiments
       {:bumblebee, "~> 0.5"},
       {:exla, "~> 0.7"},
       {:nx, "~> 0.7"},
       {:axon, "~> 0.6"},
-      {:gemini_ex, "~> 0.4"},
+      {:gemini_ex, "~> 0.8.7"},
 
       # Data processing
       {:jason, "~> 1.4"},

@@ -33,20 +33,20 @@ defmodule CnsCrucible.Experiments.ScifactClaimExtraction do
   require Logger
 
   alias CrucibleIR.{
-    Experiment,
-    DatasetRef,
     BackendRef,
-    StageDef,
-    OutputSpec
+    DatasetRef,
+    Experiment,
+    OutputSpec,
+    StageDef
   }
 
   alias CrucibleIR.Reliability.{
     Config,
     Ensemble,
-    Hedging,
+    Fairness,
     Guardrail,
-    Stats,
-    Fairness
+    Hedging,
+    Stats
   }
 
   @doc """
@@ -71,8 +71,7 @@ defmodule CnsCrucible.Experiments.ScifactClaimExtraction do
     Logger.info("Dataset: SciFact claim extraction")
     Logger.info("Backend: Tinkex LoRA (#{experiment.backend.options.base_model})")
 
-    # Call via apply so dialyzer keeps the error tuple variant from the path dependency spec.
-    result = apply(CrucibleFramework, :run, [experiment, []])
+    result = CrucibleFramework.run(experiment, [])
 
     case result do
       {:ok, context} ->
@@ -100,7 +99,7 @@ defmodule CnsCrucible.Experiments.ScifactClaimExtraction do
       id: generate_experiment_id(opts),
       description: "CNS claim extraction on SciFact via Tinkex LoRA backend",
       owner: "north-shore-ai",
-      tags: ["cns", "scifact", "tinkex", "lora", "claim-extraction"],
+      tags: [:cns, :scifact, :tinkex, :lora, :claim_extraction],
       metadata: %{
         version: "1.0.0",
         created: DateTime.utc_now(),
@@ -108,8 +107,8 @@ defmodule CnsCrucible.Experiments.ScifactClaimExtraction do
       },
       dataset: %DatasetRef{
         # Use local file
-        provider: nil,
-        name: "scifact_claim_extractor",
+        provider: :local,
+        name: :scifact_claim_extractor,
         split: :train,
         options: %{
           path:
@@ -303,17 +302,16 @@ defmodule CnsCrucible.Experiments.ScifactClaimExtraction do
       |> Keyword.get(:base_model, "meta-llama/Llama-3.2-1B")
       |> to_string()
       |> String.split("/")
-      |> Enum.map(fn segment ->
+      |> Enum.map_join("_", fn segment ->
         segment
         |> String.replace(~r/[^a-z0-9]/i, "_")
         |> String.downcase()
       end)
-      |> Enum.join("_")
 
     rank = opts[:lora_rank] || 8
-    timestamp = System.unique_integer([:positive]) |> rem(10000)
+    timestamp = System.unique_integer([:positive]) |> rem(10_000)
 
-    "#{base}_#{model}_r#{rank}_#{timestamp}"
+    String.to_atom("#{base}_#{model}_r#{rank}_#{timestamp}")
   end
 
   defp print_summary(context) do

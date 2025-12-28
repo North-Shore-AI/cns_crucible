@@ -3,44 +3,43 @@ defmodule CnsCrucible.Adapters.Surrogates do
   CNS-based implementation of `Crucible.Analysis.SurrogateAdapter`.
   """
 
-  @behaviour Crucible.Analysis.SurrogateAdapter
-
-  alias CNS.Topology.Surrogates
   alias CNS.Topology
+  alias CNS.Topology.Surrogates
   alias CnsCrucible.Adapters.Common
 
-  @impl true
   def compute_surrogates(examples, outputs, opts \\ %{}) do
     opts = normalize_opts(opts)
 
-    with {:ok, %{snos: snos, parsed: parsed}} <- Common.build_snos(examples, outputs) do
-      graph = Topology.build_graph(snos)
-      claim_lookup = claim_lookup(parsed)
+    case Common.build_snos(examples, outputs) do
+      {:ok, %{snos: snos, parsed: parsed}} ->
+        graph = Topology.build_graph(snos)
+        claim_lookup = claim_lookup(parsed)
 
-      results =
-        snos
-        |> Enum.with_index(1)
-        |> Enum.map(fn {%{id: id} = sno, idx} ->
-          subgraph = neighborhood(graph, id)
-          embeddings = claim_lookup |> Map.get(id, []) |> Common.embedding_vectors()
+        results =
+          snos
+          |> Enum.with_index(1)
+          |> Enum.map(fn {%{id: id} = sno, idx} ->
+            subgraph = neighborhood(graph, id)
+            embeddings = claim_lookup |> Map.get(id, []) |> Common.embedding_vectors()
 
-          beta1 = Surrogates.compute_beta1_surrogate(subgraph)
-          fragility = Surrogates.compute_fragility_surrogate(embeddings, opts)
+            beta1 = Surrogates.compute_beta1_surrogate(subgraph)
+            fragility = Surrogates.compute_fragility_surrogate(embeddings, opts)
 
-          %{
-            sno_id: id || "output_#{idx}",
-            beta1_surrogate: beta1,
-            fragility_score: fragility,
-            cycle_count: beta1,
-            notes: nil,
-            metadata: sno.metadata
-          }
-        end)
+            %{
+              sno_id: id || "output_#{idx}",
+              beta1_surrogate: beta1,
+              fragility_score: fragility,
+              cycle_count: beta1,
+              notes: nil,
+              metadata: sno.metadata
+            }
+          end)
 
-      summary = summarize(results)
-      {:ok, %{results: results, summary: summary}}
-    else
-      {:error, reason} -> {:error, reason}
+        summary = summarize(results)
+        {:ok, %{results: results, summary: summary}}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 

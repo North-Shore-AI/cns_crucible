@@ -3,8 +3,6 @@ defmodule CnsCrucible.Adapters.TDA do
   CNS-based implementation of `Crucible.Analysis.TDAAdapter`.
   """
 
-  @behaviour Crucible.Analysis.TDAAdapter
-
   require Logger
 
   alias CNS.Topology
@@ -12,28 +10,26 @@ defmodule CnsCrucible.Adapters.TDA do
   alias CnsCrucible.Adapters.Common
   alias ExTopology.Diagram
 
-  @impl true
   def compute_tda(examples, outputs, opts \\ %{}) do
     opts = normalize_opts(opts)
 
-    with {:ok, %{snos: snos}} <- Common.build_snos(examples, outputs) do
-      snos = ensure_embeddings(snos)
+    case Common.build_snos(examples, outputs) do
+      {:ok, %{snos: snos}} ->
+        snos = ensure_embeddings(snos)
 
-      with {:ok, result} <- safe_compute_tda(snos, opts) do
+        result = safe_compute_tda(snos, opts)
         {results, summary} = format_result(result, length(snos))
         {:ok, %{results: results, summary: summary}}
-      end
-    else
-      {:error, reason} -> {:error, reason}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
   defp safe_compute_tda(snos, opts) do
-    try do
-      {:ok, Persistence.compute(snos, opts)}
-    rescue
-      e -> {:ok, fallback_result(snos, e)}
-    end
+    Persistence.compute(snos, opts)
+  rescue
+    e -> fallback_result(snos, e)
   end
 
   defp format_result(%{diagrams: diagrams} = result, count) do
@@ -124,28 +120,30 @@ defmodule CnsCrucible.Adapters.TDA do
   defp safe_div(num, den), do: num / den
 
   defp ensure_embeddings(snos) do
-    snos
-    |> Enum.map(fn %{metadata: meta} = sno ->
-      cond do
-        Map.has_key?(meta, :embedding) or Map.has_key?(meta, "embedding") ->
-          sno
+    Enum.map(snos, &ensure_embedding/1)
+  end
 
-        true ->
-          case Adapter.extract_embedding(sno, source: :generate) do
-            {:ok, embedding} ->
-              Logger.info("[CnsCrucible.Adapters.TDA] embedding_provider used for #{sno.id}")
+  defp ensure_embedding(%{metadata: meta} = sno) do
+    if Map.has_key?(meta, :embedding) or Map.has_key?(meta, "embedding") do
+      sno
+    else
+      add_generated_embedding(sno, meta)
+    end
+  end
 
-              %{sno | metadata: Map.put(meta, :embedding, embedding)}
+  defp add_generated_embedding(sno, meta) do
+    case Adapter.extract_embedding(sno, source: :generate) do
+      {:ok, embedding} ->
+        Logger.info("[CnsCrucible.Adapters.TDA] embedding_provider used for #{sno.id}")
+        %{sno | metadata: Map.put(meta, :embedding, embedding)}
 
-            {:error, reason} ->
-              Logger.error(
-                "[CnsCrucible.Adapters.TDA] embedding missing for #{sno.id}: #{inspect(reason)}"
-              )
+      {:error, reason} ->
+        Logger.error(
+          "[CnsCrucible.Adapters.TDA] embedding missing for #{sno.id}: #{inspect(reason)}"
+        )
 
-              raise "Embedding unavailable (see logs)"
-          end
-      end
-    end)
+        raise "Embedding unavailable (see logs)"
+    end
   end
 
   defp normalize_opts(nil), do: []

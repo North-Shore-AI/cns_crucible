@@ -13,6 +13,8 @@ defmodule Mix.Tasks.CnsCrucible.RunClaimExperiment do
 
   use Mix.Task
 
+  alias CnsCrucible.Experiments.ClaimExtraction
+
   @shortdoc "Run CNS Crucible claim extraction experiment"
 
   @impl Mix.Task
@@ -29,7 +31,7 @@ defmodule Mix.Tasks.CnsCrucible.RunClaimExperiment do
     IO.puts("  Limit: #{limit}")
     IO.puts("")
 
-    {:ok, report} = CnsCrucible.Experiments.ClaimExtraction.run(limit: limit)
+    {:ok, report} = ClaimExtraction.run(limit: limit)
     IO.puts(report)
   end
 end

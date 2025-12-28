@@ -4,9 +4,9 @@ defmodule CnsCrucible.Experiments.ScifactClaimExtractionTest do
   alias CnsCrucible.Experiments.ScifactClaimExtraction
 
   alias CrucibleIR.{
-    Experiment,
-    DatasetRef,
     BackendRef,
+    DatasetRef,
+    Experiment,
     OutputSpec,
     StageDef
   }
@@ -18,20 +18,21 @@ defmodule CnsCrucible.Experiments.ScifactClaimExtractionTest do
       experiment = ScifactClaimExtraction.build_experiment()
 
       assert %Experiment{} = experiment
-      assert experiment.id =~ ~r/^cns_scifact_tinkex_/
+      assert is_atom(experiment.id)
+      assert Atom.to_string(experiment.id) =~ ~r/^cns_scifact_tinkex_/
       assert experiment.description == "CNS claim extraction on SciFact via Tinkex LoRA backend"
       assert experiment.owner == "north-shore-ai"
-      assert "cns" in experiment.tags
-      assert "scifact" in experiment.tags
-      assert "tinkex" in experiment.tags
-      assert "lora" in experiment.tags
+      assert :cns in experiment.tags
+      assert :scifact in experiment.tags
+      assert :tinkex in experiment.tags
+      assert :lora in experiment.tags
     end
 
     test "dataset configuration is correct" do
       experiment = ScifactClaimExtraction.build_experiment()
 
       assert %DatasetRef{} = experiment.dataset
-      assert experiment.dataset.name == "scifact_claim_extractor"
+      assert experiment.dataset.name == :scifact_claim_extractor
       assert experiment.dataset.split == :train
       assert experiment.dataset.options.input_key == :prompt
       assert experiment.dataset.options.output_key == :completion
@@ -143,7 +144,7 @@ defmodule CnsCrucible.Experiments.ScifactClaimExtractionTest do
           lora_rank: 32
         )
 
-      assert experiment.id =~ ~r/cns_scifact_tinkex_mistral_7b_instruct_r32_\d+/
+      assert Atom.to_string(experiment.id) =~ ~r/cns_scifact_tinkex_mistral_7b_instruct_r32_\d+/
     end
 
     test "timestamps are set correctly" do
@@ -190,7 +191,8 @@ defmodule CnsCrucible.Experiments.ScifactClaimExtractionTest do
       # We should be able to decode it back
       {:ok, decoded} = Jason.decode(json)
       assert is_map(decoded)
-      assert decoded["id"] == experiment.id
+      # JSON decodes atoms as strings
+      assert decoded["id"] == Atom.to_string(experiment.id)
       assert decoded["description"] == experiment.description
     end
   end
@@ -254,7 +256,7 @@ defmodule CnsCrucible.Experiments.ScifactClaimExtractionTest do
       assert is_integer(backend_opts.lora_alpha) and backend_opts.lora_alpha > 0
       assert is_float(backend_opts.learning_rate) and backend_opts.learning_rate > 0
       assert is_list(backend_opts.target_modules)
-      assert length(backend_opts.target_modules) > 0
+      assert Enum.any?(backend_opts.target_modules)
     end
 
     test "output paths are unique" do
@@ -289,10 +291,11 @@ defmodule CnsCrucible.Experiments.ScifactClaimExtractionTest do
       experiment =
         ScifactClaimExtraction.build_experiment(base_model: "meta-llama/Llama-3.2-1B-Instruct")
 
+      id_string = Atom.to_string(experiment.id)
       # Should replace special chars with underscores
-      assert experiment.id =~ ~r/meta_llama_llama_3_2_1b_instruct/
+      assert id_string =~ ~r/meta_llama_llama_3_2_1b_instruct/
       # Should be lowercase
-      refute experiment.id =~ ~r/[A-Z]/
+      refute id_string =~ ~r/[A-Z]/
     end
   end
 end

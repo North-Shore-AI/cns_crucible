@@ -27,12 +27,13 @@ This application provides:
 ### Prerequisites
 
 - Elixir >= 1.14 / OTP >= 25
-- Local clones of `cns`, `crucible_framework`, `tinkex` as siblings:
+- Local clones of `cns`, `crucible_framework`, `cns_ui`, `tinkex` as siblings:
   ```
   parent_dir/
   ├── cns/
   ├── crucible_framework/
   ├── cns_crucible/
+  ├── cns_ui/
   └── tinkex/
   ```
 - (Optional) `TINKER_API_KEY` for live training runs
@@ -45,7 +46,27 @@ mix deps.get
 mix compile
 ```
 
-### Run the SciFact Experiment
+### Run Your First Experiment
+
+```elixir
+# Start IEx
+iex -S mix
+
+# Run Proposer experiment (claim extraction)
+{:ok, result} = CnsCrucible.run_proposer()
+
+# Run full CNS 3.0 pipeline
+{:ok, results} = CnsCrucible.run_full_pipeline()
+
+# Run with custom configuration
+{:ok, result} = CnsCrucible.run_proposer(
+  dataset: :scifact,
+  base_model: "meta-llama/Llama-3.1-8B-Instruct",
+  enable_labeling: true
+)
+```
+
+### Legacy SciFact Experiment
 
 ```elixir
 # Interactive shell
@@ -68,6 +89,111 @@ CnsCrucible.Experiments.ScifactClaimExtraction.run(
 ```bash
 mix cns_crucible.run_claim_experiment --limit 50
 ```
+
+---
+
+## CNS Dialectical Stages
+
+This package provides Crucible stages for CNS 3.0 dialectical reasoning:
+
+| Stage | Purpose |
+|-------|---------|
+| `:proposer_metrics` | Semantic validation metrics (schema compliance, citation accuracy, entailment, similarity) |
+| `:antagonist_metrics` | Contradiction detection metrics (precision, recall, beta1 quantification, chirality) |
+| `:synthesizer_metrics` | Synthesis quality metrics (beta1 reduction, critic scores, trust scoring) |
+| `:labeling_queue` | Human-in-the-loop routing with sampling strategies |
+
+All stages implement the `Crucible.Stage` behaviour with full `describe/1` schemas for introspection.
+
+### Stage Schema Example
+
+```elixir
+# Get stage metadata
+schema = CnsCrucible.Stages.ProposerMetrics.describe(%{})
+# => %{
+#   name: :proposer_metrics,
+#   description: "Computes CNS 3.0 proposer semantic validation metrics...",
+#   required: [],
+#   optional: [:schema_threshold, :citation_threshold, ...],
+#   types: %{schema_threshold: :float, ...},
+#   defaults: %{schema_threshold: 0.95, ...}
+# }
+```
+
+---
+
+## CNS 3.0 Dialectical Experiments
+
+### Individual Agent Experiments
+
+Run each CNS agent independently:
+
+```elixir
+# Proposer: Extract claims from documents
+{:ok, proposer_result} = CnsCrucible.run_proposer(
+  dataset: :scifact,
+  enable_labeling: true
+)
+
+# Antagonist: Detect contradictions
+{:ok, antagonist_result} = CnsCrucible.run_antagonist(
+  dataset: :synthetic_contradictions,
+  beta1_threshold: 0.3
+)
+
+# Synthesizer: Resolve conflicts
+{:ok, synthesizer_result} = CnsCrucible.run_synthesizer(
+  dataset: :curated_conflicts,
+  max_iterations: 10
+)
+```
+
+### Full Dialectical Pipeline
+
+Run all three agents sequentially:
+
+```elixir
+# Proposer → Antagonist → Synthesizer
+{:ok, results} = CnsCrucible.run_full_pipeline(
+  dataset: :scifact,
+  base_model: "meta-llama/Llama-3.1-8B-Instruct",
+  enable_labeling: true
+)
+
+# Access results
+results.proposer.metrics.proposer.schema_compliance  # 1.0
+results.antagonist.metrics.antagonist.precision      # 0.85
+results.synthesizer.metrics.synthesizer.trust_score  # 0.72
+```
+
+### Parallel Execution
+
+Run all agents simultaneously for comparison:
+
+```elixir
+{:ok, results} = CnsCrucible.run_parallel_experiments(
+  proposer_opts: [dataset: :scifact],
+  antagonist_opts: [dataset: :synthetic_contradictions],
+  synthesizer_opts: [dataset: :curated_conflicts]
+)
+```
+
+### Labeling Integration
+
+Enable human-in-the-loop validation:
+
+```elixir
+# Enable labeling in any experiment
+{:ok, result} = CnsCrucible.run_proposer(
+  enable_labeling: true,
+  labeling_sample_size: 50
+)
+
+# Access CNS UI for labeling
+# http://localhost:4000/labeling
+```
+
+For complete documentation on CNS 3.0 experiments, see [CNS_EXPERIMENTS.md](./CNS_EXPERIMENTS.md).
 
 ---
 

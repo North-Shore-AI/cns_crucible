@@ -12,8 +12,8 @@ defmodule Mix.Tasks.CnsCrucible.TopologyDemo do
 
   @shortdoc "Run a topology walkthrough via CNS adapters"
 
-  alias CnsCrucible.Adapters.{Common, Surrogates, TDA}
   alias CNS.Topology
+  alias CnsCrucible.Adapters.{Common, Surrogates, TDA}
 
   @impl Mix.Task
   def run(_args) do
@@ -21,22 +21,33 @@ defmodule Mix.Tasks.CnsCrucible.TopologyDemo do
 
     {examples, outputs} = sample_payload()
 
-    with {:ok, %{snos: snos}} <- Common.build_snos(examples, outputs) do
-      IO.puts("\n== Graph invariants via CNS.Topology (ExTopology facade) ==")
-      IO.inspect(Topology.invariants(snos))
+    case Common.build_snos(examples, outputs) do
+      {:ok, %{snos: snos}} ->
+        IO.puts("\n== Graph invariants via CNS.Topology (ExTopology facade) ==")
+        invariants = Topology.invariants(snos)
+        IO.puts("  #{inspect(invariants)}")
 
-      IO.puts("\n== Surrogates via CnsCrucible.Adapters.Surrogates ==")
+        IO.puts("\n== Surrogates via CnsCrucible.Adapters.Surrogates ==")
 
-      {:ok, %{results: sur_results, summary: sur_summary}} =
-        Surrogates.compute_surrogates(examples, outputs)
+        case Surrogates.compute_surrogates(examples, outputs) do
+          {:ok, %{results: sur_results, summary: sur_summary}} ->
+            IO.puts("  Surrogate summary: #{inspect(sur_summary)}")
+            IO.puts("  Per-claim surrogates: #{inspect(sur_results)}")
 
-      IO.inspect(sur_summary, label: "Surrogate summary")
-      IO.inspect(sur_results, label: "Per-claim surrogates")
+          {:error, reason} ->
+            Mix.raise("Surrogates failed: #{inspect(reason)}")
+        end
 
-      IO.puts("\n== Persistent homology via CnsCrucible.Adapters.TDA ==")
-      {:ok, %{summary: tda_summary}} = TDA.compute_tda(examples, outputs, max_dimension: 1)
-      IO.inspect(tda_summary, label: "TDA summary")
-    else
+        IO.puts("\n== Persistent homology via CnsCrucible.Adapters.TDA ==")
+
+        case TDA.compute_tda(examples, outputs, max_dimension: 1) do
+          {:ok, %{summary: tda_summary}} ->
+            IO.puts("  TDA summary: #{inspect(tda_summary)}")
+
+          {:error, reason} ->
+            Mix.raise("TDA failed: #{inspect(reason)}")
+        end
+
       {:error, reason} ->
         Mix.raise("Failed to build SNOs for demo: #{inspect(reason)}")
     end
