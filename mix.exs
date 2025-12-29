@@ -31,10 +31,10 @@ defmodule CnsCrucible.MixProject do
       # Core dependencies - the three pillars
       {:cns, github: "North-Shore-AI/cns"},
       # Using path while monorepo stabilizes; Hex package available as {:crucible_framework, "~> 0.5.0"}
-      {:crucible_framework, "~> 0.5.1"},
+      {:crucible_framework, "~> 0.5.2"},
       {:tinkex, "~> 0.3.4"},
-      {:crucible_ensemble, "~> 0.4.0"},
-      {:crucible_hedging, "~> 0.4.0"},
+      {:crucible_ensemble, "~> 0.4.1"},
+      {:crucible_hedging, "~> 0.4.1"},
       {:crucible_bench, "~> 0.4.0"},
       {:crucible_trace, "~> 0.3.0"},
       {:work, github: "North-Shore-AI/work"},
